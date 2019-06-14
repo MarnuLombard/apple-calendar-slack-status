@@ -22,7 +22,7 @@ app.post('/', (req, res, next) => {
     next();
     return;
   }
-  // store token
+  // get Slack token and initialize API
   const token = process.env.SLACK_TOKEN;
   const web = new WebClient(token);
   // special tokens
@@ -33,7 +33,8 @@ app.post('/', (req, res, next) => {
   console.log(req.body);
   // grab status and emojis and clean it up
   let status = req.body.title;
-  let statusEmoji = nodeEmoji.unemojify('🗓');
+  //let statusEmoji = nodeEmoji.unemojify('🗓');
+  let statusEmoji = ':spiral_calendar_pad:';
   const statusHasEmoji = emojiRegex().exec(status);
   if (statusHasEmoji) {
     statusEmoji = nodeEmoji.unemojify(statusHasEmoji[0]);

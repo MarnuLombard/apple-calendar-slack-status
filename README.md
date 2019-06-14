@@ -22,3 +22,10 @@ Slack recently changed how users interact with their API. To find your SLACK_TOK
     * `users.profile:write`
 
 1. Copy the `OAuth Access Token` at the top of the page, and use it as your **SLACK_TOKEN**
+
+## Time Zone
+
+In addition to setting the Heroku TIME_ZONE variable as suggested by the Medium article, I also set the TZ variable to a supported [tz string](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) so that meeting expiry is calculated correctly by the "moment" time library.
+
+    * `TIME_ZONE` is a human readable string that appears in your Slack status like "EST".
+    * `TZ` is what Heroku uses for its app deployment and looks like "America/New_York".
