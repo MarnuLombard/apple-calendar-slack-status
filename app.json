@@ -1,7 +1,7 @@
 {
   "name": "gCal to Slack status",
   "description": "Automatically sync Google Calendar events to your Slack status",
-  "repository": "https://github.com/bjork24/google-calendar-slack-status",
+  "repository": "https://github.com/kerneljake/google-calendar-slack-status",
   "logo": "https://i.imgur.com/SPZ97eL.png",
   "keywords": ["node", "express", "slack"],
   "success_url": "/",
@@ -16,7 +16,7 @@
     },
     "TIME_ZONE": {
       "description": "What time zone are you working from?",
-      "value": "CST"
+      "value": "EST"
     }
   }
 }
