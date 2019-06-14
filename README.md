@@ -2,6 +2,7 @@
 
 This fork updates the Slack library to a more modern version that supports the JSON API
 changes made by Slack in October 2017.  See https://api.slack.com/changelog/2017-10-keeping-up-with-the-jsons
+and [node-slack-sdk](https://github.com/slackapi/node-slack-sdk)
 
 For the full tutorial, please check out the Medium post here: [Syncing your Slack status with Google Calendar because nothing is sacred anymore](https://medium.com/@bjork24/syncing-your-slack-status-with-google-calendar-because-nothing-is-sacred-anymore-3032bd171770). Otherwise, click the button below to begin your journey:
 
