@@ -16,8 +16,8 @@ Slack recently changed how users interact with their API. To find your SLACK_TOK
 1. Once the app has been created, click on the "OAuth & Permissions" link on the sidebar
 
 1. Scroll down to "Scopes" and set the following permissions:
-  * `dnd:write`
-  * `users.write`
-  * `users.profile:write`
+    * `dnd:write`
+    * `users.write`
+    * `users.profile:write`
 
 1. Copy the `OAuth Access Token` at the top of the page, and use it as your **SLACK_TOKEN**
