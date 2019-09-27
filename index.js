@@ -26,9 +26,9 @@ app.post('/', (req, res, next) => {
   const token = process.env.SLACK_TOKEN;
   const web = new WebClient(token);
   // special tokens
-  const dndToken = '[DND]';
-  const awayToken = '[AWAY]';
-  const privateToken = '[P]';
+  const dndToken = '[dnd]';
+  const awayToken = '[away]';
+  const privateToken = '[p]';
   // log some stuff for dev
   console.log(req.body);
   // grab status and emojis and clean it up
