@@ -33,6 +33,10 @@ app.post('/', (req, res, next) => {
   console.log(req.body);
   // grab status and emojis and clean it up
   let status = req.body.title;
+  if (status.startsWith('Stay at ')) {
+    // ignore hotels
+    return;
+  }
   //let statusEmoji = nodeEmoji.unemojify('🗓');
   let statusEmoji = ':spiral_calendar_pad:';
   const statusHasEmoji = emojiRegex().exec(status);
