@@ -14,13 +14,15 @@ Slack recently changed how users interact with their API. To find your SLACK_TOK
 
 1. Create a new Slack bot [here](https://api.slack.com/apps?new_app=1).
 
-1. Once the app has been created, click on the "OAuth & Permissions" link on the sidebar
+1. Once the app has been created, click on the "OAuth & Permissions" link on the sidebar.
 
-1. Scroll down to "Scopes" and set the following permissions:
+1. Scroll down to "User Token Scopes" and set the following permissions:
     * `dnd:write`
     * `users.write`
     * `users.profile:write`
 
+1. Click the "Install App to Workspace" button.
+ 
 1. Copy the `OAuth Access Token` at the top of the page, and use it as your **SLACK_TOKEN**
 
 ## Time Zone
