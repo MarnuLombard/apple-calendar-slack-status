@@ -1,37 +1,33 @@
 {
-  "name": "google-calendar-slack-status",
+  "name": "calendar-slack-status",
   "version": "1.0.0",
-  "description": "Automatically sync your Google Calendar events to your Slack status",
+  "description": "Automatically sync your Calendar events to your Slack status",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon -r dotenv/config index.js"
   },
   "engines": {
-    "node": "8.9.4"
+    "node": ">=8.9.4"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bjork24/google-calendar-slack-status.git"
+    "url": "git+https://github.com/marnulombard/google-calendar-slack-status.git"
   },
   "keywords": [],
-  "author": "Dan Chilton <dan.chilton@gmail.com>",
+  "authors": [
+    "Dan Chilton <dan.chilton@gmail.com>",
+    "Jake Angerman <kerneljake@github>",
+    "Marnu Lombard <MarnuLombard@github>"
+  ],
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/bjork24/google-calendar-slack-status/issues"
+    "url": "https://github.com/marnulombard/google-calendar-slack-status/issues"
   },
-  "homepage": "https://github.com/bjork24/google-calendar-slack-status#readme",
+  "homepage": "https://github.com/marnulombard/google-calendar-slack-status#readme",
   "dependencies": {
-    "@slack/web-api": "^5.0.1",
-    "body-parser": "^1.19.0",
-    "emoji-regex": "^8.0.0",
-    "express": "^4.16.4",
-    "moment": "^2.24.0",
-    "morgan": "^1.9.1",
-    "node-emoji": "^1.10.0",
-    "slack": "^11.0.2"
-  },
-  "devDependencies": {
-    "dotenv": "^8.6.0",
-    "nodemon": "^2.0.22"
+    "@slack/web-api": "^7.0.2",
+    "dotenv": "^16.4.5",
+    "emoji-regex": "^10.3.0",
+    "moment": "^2.30.1",
+    "node-emoji": "^2.1.3"
   }
 }

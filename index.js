@@ -1,28 +1,11 @@
-const env = require('dotenv').config({path: __dirname + '/.env'})
-const express = require('express');
-const bodyParser = require('body-parser');
-const logger = require('morgan');
+require('dotenv').config({path: '/.env'})
 const emojiRegex = require('emoji-regex');
 const nodeEmoji = require('node-emoji');
 const { WebClient } = require('@slack/web-api');
 const moment = require('moment');
+const { execSync } = require('child_process');
 
-const app = express();
-const port = process.env.PORT || 5000;
-
-app.use(logger('dev'));
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-
-const router = express.Router();
-
-app.post('/', (req, res, next) => {
-  // check for secret token
-  if (!req.body.token || req.body.token !== process.env.SECRET_TOKEN) {
-    console.log('no SECRET_TOKEN');
-    next();
-    return;
-  }
+const main = async () => {
   // get Slack token and initialize API
   const token = process.env.SLACK_TOKEN;
   const web = new WebClient(token);
@@ -31,101 +14,94 @@ app.post('/', (req, res, next) => {
   const awayToken = '[away]';
   const privateToken = '[p]';
   // log some stuff for dev
-  console.log(req.body);
+  console.log('Starting calendar - slack status sync');
   // grab status and emojis and clean it up
-  let status = req.body.title;
-  if (status.startsWith('Stay at ')) {
+  let output
+  try {
+    output = execSync('/opt/homebrew/bin/icalbuddy -ea eventsNow').toString();
+  } catch (e) {
+    console.error(e?.message ?? e);
+
+    process.exit(1);
+  }
+  if (!output) {
+    console.log('No events found');
+
+    return;
+  }
+  let [title, time] = output.split('\n');
+
+  const name = process.env.FULL_NAME;
+  title = title.replace('•', '').replace(`(${ name })`).trim();
+  time = time.trim();
+
+  console.log(`Status: ${title}. Time: ${time}`);
+
+  if (title.startsWith('Stay at ')) {
     // ignore hotels
     return;
   }
-  //let statusEmoji = nodeEmoji.unemojify('🗓');
-  let statusEmoji = ':spiral_calendar_pad:';
-  const statusHasEmoji = emojiRegex().exec(status);
+  let statusEmoji = nodeEmoji.unemojify('🗓');
+  const statusHasEmoji = emojiRegex().exec(title);
   if (statusHasEmoji) {
     statusEmoji = nodeEmoji.unemojify(statusHasEmoji[0]);
     console.log(`CUSTOM EMOJI! ${statusEmoji}`);
-    status = nodeEmoji.strip(status);
+    title = nodeEmoji.strip(title);
   }
   // parse event start/stop time
-  const dateFormat = 'MMM D, YYYY [at] hh:mmA';
-  const start = moment(req.body.start, dateFormat);
-  const end = moment(req.body.end, dateFormat);
+  const dateFormat = 'hh:mm';
+  const [startDateTime, endDateTime] = time.split(' - ').map(a => a.trim());
+
+  const start = moment(startDateTime, dateFormat);
+  const end = moment(endDateTime, dateFormat);
+
   // do not disturb
-  if (status.includes(dndToken)) {
-    (async () => {
-        await web.dnd.setSnooze({ num_minutes: end.diff(start, 'minutes') });
-    })();
-    status = status.replace(dndToken, '').trim();
+  if (title.includes(dndToken)) {
+    try {
+      await web.dnd.setSnooze({num_minutes: end.diff(start, 'minutes')});
+    } catch (e) {
+      console.error(e?.message ?? e);
+    }
+    title = title.replace(dndToken, '').trim();
   }
   // presence and AWAY
-  (async () => {
-        await web.users.setPresence({ presence: status.includes(awayToken) ? 'away' : 'auto' });
-  })();
-  if (status.includes(awayToken)) {
-    status = status.replace(awayToken, '').trim();
+  try {
+    await web.users.setPresence({presence: title.includes(awayToken) ? 'away' : 'auto'});
+  } catch (e) {
+    console.error(e?.message ?? e);
+  }
+
+  if (title.includes(awayToken)) {
+    title = title.replace(awayToken, '').trim();
   }
   // airplane flights
-  if (status.startsWith('Flight to')) {
-    status = status.replace(/\(.*\)/, '').trim();
+  if (title.startsWith('Flight to')) {
+    title = title.replace(/\(.*\)/, '').trim();
     statusEmoji = ':airplane:';
   }
   // private
-  if (status.includes(privateToken)) {
-    status = 'busy';
+  if (title.includes(privateToken)) {
+    title = 'busy';
   }
   // finally, set the status
-  status = `${status} from ${start.format('h:mm')} to ${end.format('h:mm a')} ${process.env.TIME_ZONE}`;
+  title = `${title} from ${start.format('h:mm')} to ${end.format('h:mm a')} ${process.env.TIME_ZONE}`;
   let profile = JSON.stringify({
-    "status_text": status,
+    "status_text": title,
     "status_emoji": statusEmoji,
     "status_expiration": end.unix()
   });
+
   console.log(`profile equals ${profile}`);
-  (async () => {
-	await web.users.profile.set({ profile }); 
-	console.log('Message posted!');
-  })();
+  try {
+    await web.users.profile.set({profile});
 
-  console.log(`Status set as "${status}" and will expire at ${end.format('h:mm a')}`);
-  res.status(200);
-  res.send('🤘');
-});
+    console.log(`Status set as "${ title }" and will expire at ${ end.format('h:mm a') }`);
+  } catch (e) {
+    console.error(e?.message ?? e);
 
-app.get('/', (req, res, next) => {
-  // welcome message
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Welcome!</title>
-        <style>
-          pre {
-            background-color: #DDD;
-            padding: 1em;
-            display: inline-block;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>Your Heroku server is running!</h1>
-        <p>You'll need the following information for your IFTTT recipe:</p>
-        <h3>Body</h3>
-<pre>{
-  "title":"<<<{{Title}}>>>",
-  "start":"{{Starts}}",
-  "end":"{{Ends}}",
-  "token": SECRET_TOKEN"
-}</pre>
-      </body>
-    </html>
-  `);
-});
+    process.exit(1);
+  }
+};
 
-app.use((req, res, next) => {
-  res.status(404);
-  res.send('Not found');
-});
 
-app.listen(port);
-console.log(`Server running on port ${port}`);
+void main();
