@@ -1,107 +1,179 @@
-require('dotenv').config({path: '/.env'})
+require('dotenv').config({path: __dirname+'/.env'})
+
 const emojiRegex = require('emoji-regex');
 const nodeEmoji = require('node-emoji');
 const { WebClient } = require('@slack/web-api');
-const moment = require('moment');
+const { DateTime, Interval } = require('luxon');
 const { execSync } = require('child_process');
 
-const main = async () => {
-  // get Slack token and initialize API
-  const token = process.env.SLACK_TOKEN;
-  const web = new WebClient(token);
-  // special tokens
-  const dndToken = '[dnd]';
-  const awayToken = '[away]';
-  const privateToken = '[p]';
-  // log some stuff for dev
-  console.log('Starting calendar - slack status sync');
-  // grab status and emojis and clean it up
-  let output
-  try {
-    output = execSync('/opt/homebrew/bin/icalbuddy -ea eventsNow').toString();
-  } catch (e) {
-    console.error(e?.message ?? e);
+class CalendarSlackStatus {
+  constructor({token}) {
+    this.web = new WebClient(token);
 
-    process.exit(1);
+    this.timeZone = process.env.TZ;
+    this.includedCalendars = process.env.INCLUDED_CALENDARS.split(',');
+    this.workStartsAt = process.env.WORK_STARTS_AT;
+    this.workEndsAt = process.env.WORK_ENDS_AT;
+    this.afterHoursEmoji = process.env.AFTER_HOURS_EMOJI;
   }
-  if (!output) {
-    console.log('No events found');
 
-    return;
-  }
-  let [title, time] = output.split('\n');
-
-  const name = process.env.FULL_NAME;
-  title = title.replace('•', '').replace(`(${ name })`).trim();
-  time = time.trim();
-
-  console.log(`Status: ${title}. Time: ${time}`);
-
-  if (title.startsWith('Stay at ')) {
-    // ignore hotels
-    return;
-  }
-  let statusEmoji = nodeEmoji.unemojify('🗓');
-  const statusHasEmoji = emojiRegex().exec(title);
-  if (statusHasEmoji) {
-    statusEmoji = nodeEmoji.unemojify(statusHasEmoji[0]);
-    console.log(`CUSTOM EMOJI! ${statusEmoji}`);
-    title = nodeEmoji.strip(title);
-  }
-  // parse event start/stop time
-  const dateFormat = 'hh:mm';
-  const [startDateTime, endDateTime] = time.split(' - ').map(a => a.trim());
-
-  const start = moment(startDateTime, dateFormat);
-  const end = moment(endDateTime, dateFormat);
-
-  // do not disturb
-  if (title.includes(dndToken)) {
+  async main() {
     try {
-      await web.dnd.setSnooze({num_minutes: end.diff(start, 'minutes')});
+      await this.checkAuth();
+      const event = await this.getCurrentEvent();
+
+      if (!event) {
+        console.log('No events found');
+        return;
+      }
+
+      const {title, startDateTime, endDateTime, emoji} = this.parseEvent(event);
+      await this.setStatus({title, emoji, startDateTime, endDateTime, originalEvent: event});
     } catch (e) {
       console.error(e?.message ?? e);
+      process.exit(1);
     }
-    title = title.replace(dndToken, '').trim();
-  }
-  // presence and AWAY
-  try {
-    await web.users.setPresence({presence: title.includes(awayToken) ? 'away' : 'auto'});
-  } catch (e) {
-    console.error(e?.message ?? e);
   }
 
-  if (title.includes(awayToken)) {
-    title = title.replace(awayToken, '').trim();
+  async checkAuth() {
+    const auth = await this.web.auth.test({});
+    const requiredScopes = ['users.profile:write', 'users:write', 'dnd:write'];
+    if (!auth.ok || !auth.user_id) {
+      throw new Error('Slack authentication failed');
+    }
+
+    console.log(`Authenticated as ${auth.user}`);
+
+    for (const scope of requiredScopes) {
+      if (!auth.response_metadata.scopes.includes(scope)) {
+        throw new Error(`Slack token missing required scope: ${scope}`);
+      }
+    }
   }
-  // airplane flights
-  if (title.startsWith('Flight to')) {
-    title = title.replace(/\(.*\)/, '').trim();
-    statusEmoji = ':airplane:';
+
+  async getCurrentEvent() {
+    const output = JSON.parse(execSync(
+      'icalpal --output=json eventsToday',
+      {
+        env: {
+          ...process.env,
+          PATH: `/usr/local/bin:/opt/homebrew/bin:${ process.env.PATH }`,
+        }
+      }
+    ).toString());
+
+    if (!output || !output.length) {
+      throw new Error('No events found');
+    }
+
+    return output
+    .filter(e => !e.all_day)
+    .filter(e => {
+      const now = DateTime.now()
+      const start = this.localisedTime(e.stime * 1000);
+      const end = this.localisedTime(e.etime * 1000);
+
+      return Interval.fromDateTimes(start, end).contains(now);
+    })?.[0];
   }
-  // private
-  if (title.includes(privateToken)) {
-    title = 'busy';
+
+  parseEvent(event) {
+    let title = event.title.trim();
+    const startDateTime = this.localisedTime(event.stime * 1000);
+    const endDateTime = this.localisedTime(event.etime * 1000, 'UTC');
+
+    let statusEmoji = nodeEmoji.unemojify('🗓');
+    const statusHasEmoji = emojiRegex().exec(title);
+
+    if (statusHasEmoji) {
+      statusEmoji = nodeEmoji.unemojify(statusHasEmoji[0]);
+      console.log(`CUSTOM EMOJI! ${statusEmoji}`);
+      title = nodeEmoji.strip(title);
+    }
+
+    console.log(`Status: ${title}. Time: ${startDateTime.toFormat('YYYY-MM-DD HH:mm')}`);
+
+    return {title, startDateTime, endDateTime, emoji: statusEmoji};
   }
-  // finally, set the status
-  title = `${title} from ${start.format('h:mm')} to ${end.format('h:mm a')} ${process.env.TIME_ZONE}`;
-  let profile = JSON.stringify({
-    "status_text": title,
-    "status_emoji": statusEmoji,
-    "status_expiration": end.unix()
-  });
 
-  console.log(`profile equals ${profile}`);
-  try {
-    await web.users.profile.set({profile});
+  async setStatus({title, emoji, startDateTime, endDateTime, originalEvent}) {
+    // ignore hotels
+    if (title.startsWith('Stay at ')) {
+      console.log('Ignoring hotel event');
+      return;
+    }
 
-    console.log(`Status set as "${ title }" and will expire at ${ end.format('h:mm a') }`);
-  } catch (e) {
-    console.error(e?.message ?? e);
+    // do not disturb
+    if (title.includes('[dnd]')) {
+      await this.web.dnd.setSnooze({num_minutes: endDateTime.diff(startDateTime, 'minutes')});
 
-    process.exit(1);
+      title = title.replace('[dnd]', '').trim();
+    }
+
+    // airplane flights
+    if (title.startsWith('Flight to')) {
+      title = title.replace(/\(.*\)/, '').trim();
+      emoji = ':airplane:';
+    }
+
+    // private
+    if (title.includes('[p]')) {
+      title = 'busy';
+    }
+
+    if (
+      this.includedCalendars.length
+      && originalEvent.calendar
+      && !this.includedCalendars.includes(originalEvent.calendar)
+    ) {
+      title = 'busy';
+    }
+
+    title = `${title} from ${startDateTime.format('HH:mm')} to ${endDateTime.format('HH:mm a')} ${startDateTime.offsetNameShort}`;
+
+    // presence and after hours
+    let isAway = false;
+
+    const now = DateTime.now();
+    const [startsAtHour, startsAtMinute] = this.workStartsAt.split(':').map(Number);
+    const [endsAtHour, endsAtMinute] = this.workEndsAt.split(':').map(Number);
+    if (
+      now < now.set({hours: startsAtHour, minutes: startsAtMinute})
+      || now > now.set({hours: endsAtHour, minutes: endsAtMinute})
+      || now.weekday >= 6
+    ) {
+      emoji = this.afterHoursEmoji;
+      title = `After hours. Starts at ${this.workStartsAt} ${now.offsetNameShort}`
+      isAway = true;
+    }
+    isAway = isAway || title.includes('[away]');
+    await this.web.users.setPresence({presence: isAway ? 'away' : 'auto'});
+
+    if (title.includes('[away]')) {
+      title = title.replace('[away]', '').trim();
+    }
+
+    // finally, set the status
+    let profile = {
+      status_text: title,
+      status_emoji: emoji,
+      ...(isAway ? {} :{status_expiration: endDateTime.toUnixInteger()}),
+    };
+
+    await this.web.users.profile.set({profile});
+
+    console.log(`Status set as "${ title }"`);
+
+    if (!profile.status_expiration) {
+      console.log(`Status will expire at ${ endDateTime.format('h:mm a') }`);
+    }
   }
-};
 
+  localisedTime(timeStamp) {
+    return new DateTime(timeStamp, {zone: this.timeZone});
+  }
+}
 
-void main();
+const token = process.env.SLACK_TOKEN;
+console.log(`Starting calendar - slack status sync at ${DateTime.now().toFormat('YYYY-MM-DD HH:mm:ss')}`);
+void new CalendarSlackStatus({token}).main();
