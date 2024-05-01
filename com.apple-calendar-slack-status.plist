@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>com.apple-calendar-slack-status</string>
+        <key>UserName</key>
+        <string>yourusernamehere</string>
+        <key>ProgramArguments</key>
+        <array>
+            <string>/path/to/npm</string>
+            <string>run</string>
+            <string>start</string>
+        </array>
+        <key>EnvironmentVariables</key>
+        <dict>
+            <key>INIT_CWD</key>
+            <string>/path/to/your/cloned/repo</string>
+        </dict>
+        <key>StartInterval</key>
+        <integer>600</integer> <!-- Run every 10 min -->
+        <key>StandardOutPath</key>
+        <string>/path/to/logs/com.apple-calendar-slack-status.stdout.log</string>
+        <key>StandardErrorPath</key>
+        <string>/path/to/logs/com.apple-calendar-slack-status.stderr.log</string>
+    </dict>
+</plist>
