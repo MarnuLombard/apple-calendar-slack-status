@@ -20,10 +20,13 @@ class CalendarSlackStatus {
   async main() {
     try {
       await this.checkAuth();
+      await this.checkWorkingHours(DateTime.now());
+
       const event = await this.getCurrentEvent();
 
       if (!event) {
         console.log('No events found');
+
         return;
       }
 
@@ -91,7 +94,7 @@ class CalendarSlackStatus {
       title = nodeEmoji.strip(title);
     }
 
-    console.log(`Status: ${title}. Time: ${startDateTime.toFormat('YYYY-MM-DD HH:mm')}`);
+    console.log(`Status: ${title}. Time: ${startDateTime.toFormat('yyyy-mm-dd HH:mm')}`);
 
     return {title, startDateTime, endDateTime, emoji: statusEmoji};
   }
@@ -129,23 +132,11 @@ class CalendarSlackStatus {
       title = 'busy';
     }
 
-    title = `${title} from ${startDateTime.format('HH:mm')} to ${endDateTime.format('HH:mm a')} ${startDateTime.offsetNameShort}`;
+    title = `${title} from ${startDateTime.toFormat('HH:mm')} to ${endDateTime.toFormat('HH:mm a')} ${startDateTime.offsetNameShort}`;
 
     // presence and after hours
     let isAway = false;
 
-    const now = DateTime.now();
-    const [startsAtHour, startsAtMinute] = this.workStartsAt.split(':').map(Number);
-    const [endsAtHour, endsAtMinute] = this.workEndsAt.split(':').map(Number);
-    if (
-      now < now.set({hours: startsAtHour, minutes: startsAtMinute})
-      || now > now.set({hours: endsAtHour, minutes: endsAtMinute})
-      || now.weekday >= 6
-    ) {
-      emoji = this.afterHoursEmoji;
-      title = `After hours. Starts at ${this.workStartsAt} ${now.offsetNameShort}`
-      isAway = true;
-    }
     isAway = isAway || title.includes('[away]');
     await this.web.users.setPresence({presence: isAway ? 'away' : 'auto'});
 
@@ -153,27 +144,55 @@ class CalendarSlackStatus {
       title = title.replace('[away]', '').trim();
     }
 
+    await this.sendStatus(title, emoji, isAway, endDateTime)
+  }
+
+  async sendStatus(title, emoji, isAway, endDateTime) {
     // finally, set the status
-    let profile = {
+    const profile = {
       status_text: title,
       status_emoji: emoji,
-      ...(isAway ? {} :{status_expiration: endDateTime.toUnixInteger()}),
-    };
+      ...(isAway ? {} : {status_expiration: endDateTime.toUnixInteger()}),
+    }
 
-    await this.web.users.profile.set({profile});
+    await this.web.users.profile.set({profile})
 
-    console.log(`Status set as "${ title }"`);
+    console.log(`Status set as "${ title }"`)
 
     if (!profile.status_expiration) {
-      console.log(`Status will expire at ${ endDateTime.format('h:mm a') }`);
+      console.log(`Status will expire at ${ endDateTime.toFormat('h:mm a') }`)
     }
   }
 
   localisedTime(timeStamp) {
     return new DateTime(timeStamp, {zone: this.timeZone});
   }
+
+  async checkWorkingHours() {
+    const now = DateTime.now();
+    const [startsAtHour, startsAtMinute] = this.workStartsAt.split(':').map(Number);
+    const [endsAtHour, endsAtMinute] = this.workEndsAt.split(':').map(Number);
+
+    if (
+      now < now.set({hours: startsAtHour, minutes: startsAtMinute})
+      || now > now.set({hours: endsAtHour, minutes: endsAtMinute})
+      || now.weekday >= 6
+    ) {
+      let workStartsAt = now.plus({days: 1}).set({hours: startsAtHour, minutes: startsAtMinute});
+
+      while (now.weekday >= 6) {
+        workStartsAt = now.plus({days: 1});
+      }
+
+      const emoji = this.afterHoursEmoji;
+      const title = `After hours. Starts at ${ this.workStartsAt } ${ now.offsetNameShort }`
+      const isAway = true;
+
+      await this.sendStatus(title, emoji, isAway, workStartsAt)
+    }
+  }
 }
 
 const token = process.env.SLACK_TOKEN;
-console.log(`Starting calendar - slack status sync at ${DateTime.now().toFormat('YYYY-MM-DD HH:mm:ss')}`);
+console.log(`Starting calendar - slack status sync at ${DateTime.now().toFormat('yyyy-mm-dd HH:mm:ss')}`);
 void new CalendarSlackStatus({token}).main();
