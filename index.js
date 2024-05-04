@@ -178,8 +178,8 @@ class CalendarSlackStatus {
     ) {
       let workStartsAt = now.plus({days: 1}).set({hours: startsAtHour, minutes: startsAtMinute});
 
-      while (now.weekday >= 6) {
-        workStartsAt = now.plus({days: 1});
+      while (workStartsAt.weekday >= 6) {
+        workStartsAt = workStartsAt.plus({days: 1});
       }
 
       const emoji = this.afterHoursEmoji;
