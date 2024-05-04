@@ -183,7 +183,7 @@ class CalendarSlackStatus {
       }
 
       const emoji = this.afterHoursEmoji;
-      const title = `After hours. Starts at ${ this.workStartsAt } ${ now.offsetNameShort }`
+      const title = `After hours. Starts at ${ workStartsAt.toFormat('yyyy-mm-dd HH:mm') } ${ now.offsetNameShort }`
       const isAway = true;
 
       await this.sendStatus(title, emoji, isAway, workStartsAt)
