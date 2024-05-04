@@ -73,8 +73,8 @@ class CalendarSlackStatus {
     .filter(e => !e.all_day)
     .filter(e => {
       const now = DateTime.now()
-      const start = this.localisedTime(e.stime * 1000);
-      const end = this.localisedTime(e.etime * 1000);
+      const start = DateTime.fromMillis(e.stime * 1000);
+      const end = DateTime.fromMillis(e.etime * 1000);
 
       return Interval.fromDateTimes(start, end).contains(now);
     })?.[0];
@@ -82,8 +82,8 @@ class CalendarSlackStatus {
 
   parseEvent(event) {
     let title = event.title.trim();
-    const startDateTime = this.localisedTime(event.stime * 1000);
-    const endDateTime = this.localisedTime(event.etime * 1000, 'UTC');
+    const startDateTime = DateTime.fromMillis(event.stime * 1000);
+    const endDateTime = DateTime.fromMillis(event.etime * 1000);
 
     let statusEmoji = nodeEmoji.unemojify('🗓');
     const statusHasEmoji = emojiRegex().exec(title);
@@ -162,10 +162,6 @@ class CalendarSlackStatus {
     if (!profile.status_expiration) {
       console.log(`Status will expire at ${ endDateTime.toFormat('h:mm a') }`)
     }
-  }
-
-  localisedTime(timeStamp) {
-    return new DateTime(timeStamp, {zone: this.timeZone});
   }
 
   async checkWorkingHours() {
