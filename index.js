@@ -55,7 +55,7 @@ class CalendarSlackStatus {
   }
 
   async getCurrentEvent() {
-    const output = JSON.parse(execSync(
+    const calendarData = execSync(
       'icalpal --output=json eventsToday',
       {
         env: {
@@ -63,11 +63,13 @@ class CalendarSlackStatus {
           PATH: `/usr/local/bin:/opt/homebrew/bin:${ process.env.PATH }`,
         }
       }
-    ).toString());
+    ).toString();
 
-    if (!output || !output.length) {
-      throw new Error('No events found');
+    if (!calendarData || !calendarData.length) {
+      throw new Error('No event data returned from icalpal');
     }
+
+    const output = JSON.parse(calendarData);
 
     return output
     .filter(e => !e.all_day)
