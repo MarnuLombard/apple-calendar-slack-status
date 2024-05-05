@@ -10,7 +10,6 @@ class CalendarSlackStatus {
   constructor({token}) {
     this.web = new WebClient(token);
 
-    this.timeZone = process.env.TZ;
     this.includedCalendars = process.env.INCLUDED_CALENDARS.split(',');
     this.workStartsAt = process.env.WORK_STARTS_AT;
     this.workEndsAt = process.env.WORK_ENDS_AT;
@@ -96,7 +95,7 @@ class CalendarSlackStatus {
       title = nodeEmoji.strip(title);
     }
 
-    console.log(`Status: ${title}. Time: ${startDateTime.toFormat('yyyy-mm-dd HH:mm')}`);
+    console.log(`Status: ${title}. Time: ${startDateTime.toFormat('yyyy-MM-dd HH:mm')}`);
 
     return {title, startDateTime, endDateTime, emoji: statusEmoji};
   }
@@ -183,7 +182,7 @@ class CalendarSlackStatus {
       }
 
       const emoji = this.afterHoursEmoji;
-      const title = `After hours. Starts at ${ workStartsAt.toFormat('yyyy-mm-dd HH:mm') } ${ now.offsetNameShort }`
+      const title = `After hours. Starts at ${ workStartsAt.toFormat('yyyy-MM-dd HH:mm') } ${ now.offsetNameShort }`
       const isAway = true;
 
       await this.sendStatus(title, emoji, isAway, workStartsAt)
@@ -192,5 +191,5 @@ class CalendarSlackStatus {
 }
 
 const token = process.env.SLACK_TOKEN;
-console.log(`Starting calendar - slack status sync at ${DateTime.now().toFormat('yyyy-mm-dd HH:mm:ss')}`);
+console.log(`Starting calendar - slack status sync at ${DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss')}`);
 void new CalendarSlackStatus({token}).main();
