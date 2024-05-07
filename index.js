@@ -14,6 +14,7 @@ class CalendarSlackStatus {
     this.workStartsAt = process.env.WORK_STARTS_AT;
     this.workEndsAt = process.env.WORK_ENDS_AT;
     this.afterHoursEmoji = process.env.AFTER_HOURS_EMOJI;
+    this.timezone = process.env.TZ;
   }
 
   async main() {
@@ -73,9 +74,9 @@ class CalendarSlackStatus {
     return output
     .filter(e => !e.all_day)
     .filter(e => {
-      const now = DateTime.now()
-      const start = DateTime.fromMillis(e.stime * 1000);
-      const end = DateTime.fromMillis(e.etime * 1000);
+      const now = DateTime.now();
+      const start = this.makeLocalisedTime(e.stime * 1000);
+      const end = this.makeLocalisedTime(e.etime * 1000);
 
       return Interval.fromDateTimes(start, end).contains(now);
     })?.[0];
@@ -83,8 +84,8 @@ class CalendarSlackStatus {
 
   parseEvent(event) {
     let title = event.title.trim();
-    const startDateTime = DateTime.fromMillis(event.stime * 1000);
-    const endDateTime = DateTime.fromMillis(event.etime * 1000);
+    const startDateTime = this.makeLocalisedTime(event.stime * 1000);
+    const endDateTime = this.makeLocalisedTime(event.etime * 1000);
 
     let statusEmoji = nodeEmoji.unemojify('🗓');
     const statusHasEmoji = emojiRegex().exec(title);
@@ -187,6 +188,12 @@ class CalendarSlackStatus {
 
       await this.sendStatus(title, emoji, isAway, workStartsAt)
     }
+  }
+
+  makeLocalisedTime(milliSeconds) {
+    return DateTime
+    .fromMillis(milliSeconds, {zone: 'UTC'})
+    .setZone(this.timezone, {keepLocalTime: true})
   }
 }
 
