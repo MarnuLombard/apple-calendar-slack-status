@@ -69,7 +69,7 @@ Use the `launchctl` command to load your script's schedule.
 ```bash
 launchctl load ~/Library/LaunchAgents/com.apple-calendar-slack-status.plist
 ```
-### Step 4: Add Node.js binary to your fukk dusk access programs
+### Step 4: Add Node.js binary to your "full disk access" programs
 Add the `node` executable to the list of Full Disk Access apps in **System Preferences** > **Security & Privacy** > **Privacy**
   - After hours of debugging - this was the only way I could get the script to access `Calendar.sqlitedb`. Please contact me if you have a better solution.
 
