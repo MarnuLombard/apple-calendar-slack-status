@@ -6,6 +6,14 @@ const { WebClient } = require('@slack/web-api');
 const { DateTime, Interval } = require('luxon');
 const { execSync } = require('child_process');
 
+const log = (message) => {
+  console.log(`${DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss')}: ${message}`);
+}
+
+const error = (message) => {
+  console.error(`${DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss')}: ${message}`);
+}
+
 class CalendarSlackStatus {
   constructor({token}) {
     this.web = new WebClient(token);
@@ -25,7 +33,7 @@ class CalendarSlackStatus {
       const event = await this.getCurrentEvent();
 
       if (!event) {
-        console.log('No events found');
+        log('No events found');
 
         return;
       }
@@ -33,7 +41,7 @@ class CalendarSlackStatus {
       const {title, startDateTime, endDateTime, emoji} = this.parseEvent(event);
       await this.setStatus({title, emoji, startDateTime, endDateTime, originalEvent: event});
     } catch (e) {
-      console.error(e?.message ?? e);
+      error(e?.message ?? e);
       process.exit(1);
     }
   }
@@ -45,7 +53,7 @@ class CalendarSlackStatus {
       throw new Error('Slack authentication failed');
     }
 
-    console.log(`Authenticated as ${auth.user}`);
+    log(`Authenticated as ${auth.user}`);
 
     for (const scope of requiredScopes) {
       if (!auth.response_metadata.scopes.includes(scope)) {
@@ -92,11 +100,11 @@ class CalendarSlackStatus {
 
     if (statusHasEmoji) {
       statusEmoji = nodeEmoji.unemojify(statusHasEmoji[0]);
-      console.log(`CUSTOM EMOJI! ${statusEmoji}`);
+      log(`CUSTOM EMOJI! ${statusEmoji}`);
       title = nodeEmoji.strip(title);
     }
 
-    console.log(`Status: ${title}. Time: ${startDateTime.toFormat('yyyy-MM-dd HH:mm')}`);
+    log(`Status: ${title}. Time: ${startDateTime.toFormat('yyyy-MM-dd HH:mm')}`);
 
     return {title, startDateTime, endDateTime, emoji: statusEmoji};
   }
@@ -104,7 +112,7 @@ class CalendarSlackStatus {
   async setStatus({title, emoji, startDateTime, endDateTime, originalEvent}) {
     // ignore hotels
     if (title.startsWith('Stay at ')) {
-      console.log('Ignoring hotel event');
+      log('Ignoring hotel event');
       return;
     }
 
@@ -159,10 +167,10 @@ class CalendarSlackStatus {
 
     await this.web.users.profile.set({profile})
 
-    console.log(`Status set as "${ title }"`)
+    log(`Status set as "${ nodeEmoji.emojify(emoji) } ${ title }"`)
 
     if (!profile.status_expiration) {
-      console.log(`Status will expire at ${ endDateTime.toFormat('h:mm a') }`)
+      log(`Status will expire at ${ endDateTime.toFormat('h:mm a') }`)
     }
   }
 
@@ -198,5 +206,5 @@ class CalendarSlackStatus {
 }
 
 const token = process.env.SLACK_TOKEN;
-console.log(`Starting calendar - slack status sync at ${DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss')}`);
+log('Starting calendar - slack status sync');
 void new CalendarSlackStatus({token}).main();
